@@ -3,22 +3,35 @@ const fs = require('fs').promises;
 const readlineSync = require('readline-sync');
 const chalk = require('chalk');
 
-const checking = async (email) => {
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+const checking = async (email, retries = 3) => {
     try {
         const response = await fetch(`https://api.x.com/i/users/email_available.json?email=${email}`, {
             method: 'GET',
             headers: {
-                "authorization": `Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA`,
+                "authorization": `Bearer AAAAAAAAAAAAAAAAAAAAALNnwwEAAAAAWoWcz24RRDveCE3j55ObP6%2BX2do%3DMuySOsBGld9r8df9rLQVMPNHEVqxcQ54muqKYKRKUfpCjQyvf5`,
                 "Origin": `https://x.com`,
                 "Referer": "https://x.com/i/flow/signup",
                 "Sec-Fetch-Mode": "cors",
-                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
                 "x-csrf-token": "ab07b56686b83e0c165ba917731a0927",
                 "x-guest-token": "1185937517071060992",
                 "x-twitter-active-user": "yes",
                 "x-twitter-client-language": "en"
             }
         });
+
+        if (response.status === 429) {
+            if (retries > 0) {
+                console.log(chalk.yellow(`[RETRY] Rate limit hit, waiting... (${retries} retries left)`));
+                await delay(5000); // Tunggu 5 detik sebelum mencoba lagi
+                return checking(email, retries - 1);
+            } else {
+                console.log(chalk.red(`[ERROR] Rate limit exceeded for ${email}`));
+                return null;
+            }
+        }
 
         if (!response.ok) {
             console.log(chalk.red(`[ERROR] Request failed with status ${response.status}`));
@@ -68,6 +81,9 @@ const checking = async (email) => {
                 } else {
                     console.log(chalk.red(`[ERROR] Failed to check ${email}`));
                 }
+
+                // Tambahkan delay untuk menghindari rate limit
+                await delay(2000); // Tunggu 2 detik sebelum lanjut ke email berikutnya
             }
         } else {
             console.log(chalk.red("File is empty or does not exist."));
